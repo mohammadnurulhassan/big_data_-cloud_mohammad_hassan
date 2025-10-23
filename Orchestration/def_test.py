@@ -36,7 +36,7 @@ db_path = Path(__file__).parents[1] / "data_warehouse" / "job_ads.duckdb"
 @dlt_assets(
     dlt_source=jobads_source(),
     dlt_pipeline=dlt.pipeline(
-        pipeline_name="jobsads_demo",
+        pipeline_name="job_ads_pipeline",
         dataset_name="staging",
         destination=dlt.destinations.duckdb(db_path),
     ),
@@ -81,7 +81,7 @@ def dbt_models(context: dg.AssetExecutionContext, dbt: DbtCliResource):
 #DLT job
 job_dlt = dg.define_asset_job(
     "job_dlt",
-    selection=dg.AssetSelection.keys("dlt_jobads_source_jobads_resource"),
+    selection=dg.AssetSelection.keys("dlt_jobads_source_jobsearch_resource"),
 )
 
 # DBT job
@@ -98,7 +98,7 @@ job_dbt = dg.define_asset_job(
 
 schedule_dlt = dg.ScheduleDefinition(
     job=job_dlt,
-    cron_schedule="30 11 * * *"  # Runs every day 11:30 UTC
+    cron_schedule="08 21 * * *"  # Runs every day 21:08 UTC
 )
 
 
@@ -109,8 +109,9 @@ schedule_dlt = dg.ScheduleDefinition(
 # ==================== #
 
 @dg.asset_sensor(
-    asset_key=dg.AssetKey("dlt_jobads_source_jobads_resource"),
-   job_name="job_dbt")
+    asset_key=dg.AssetKey("dlt_jobads_source_jobsearch_resource"),
+   job_name="job_dbt"
+   )
 def dlt_load_sensor():
     yield dg.RunRequest()
 
