@@ -17,7 +17,7 @@ from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 # this part is not needed if you create a package for your dagster scripts
 import sys
 sys.path.insert(0, '../dlt_code')
-from test_load import jobads_source
+from load_job_ads import jobads_source
 
  
 # ==================== #
