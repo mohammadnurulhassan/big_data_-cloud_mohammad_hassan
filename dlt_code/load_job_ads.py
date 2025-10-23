@@ -8,12 +8,12 @@ dlt.config["load.truncate_staging_dataset"] = True
 
 
 
- params = {"q": query, "limit": 100, "occupation-field": occupation_field}
+params = {"q": query, "limit": 100, "occupation-field": occupation_field}
 query = ""
-    table_name = "job_ads"
+table_name = "job_ads"
 
 
-    occupation_fields = ("yhCP_AqT_tns", "Uuf1_GMh_Uvw", "9puE_nYg_crq")
+occupation_fields = ("yhCP_AqT_tns", "Uuf1_GMh_Uvw", "9puE_nYg_crq")
 
 
 
@@ -63,7 +63,7 @@ def jobsearch_resource(params):
 
 @dlt.source
 def jobads_source(q):
-    return jobads_resource(params={"q": q, "limit": 100})
+    return jobads_resource(params)
 
 
 
