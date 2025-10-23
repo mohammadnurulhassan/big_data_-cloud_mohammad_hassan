@@ -7,9 +7,9 @@ with
 
 
 select
-    do.occupation,
-    do.occupation_field,
-    do.occupation_group,
+    d_occ.occupation,
+    d_occ.occupation_field,
+    d_occ.occupation_group,
     dj.headline,
     dj.description,
     dj.employment_type,
@@ -33,5 +33,5 @@ from
 left join dim_employer de ON de.employer_id = ft.employer_id
 left join dim_auxilliary da ON da.auxilliary_attribute_id = ft.auxilliary_attribute_id
 left join dim_job_details dj ON dj.job_details_id = ft.job_details_id
-left join dim_occupation do ON do.occupation_id = ft.occupation_id
-where occupation_field = 'Kultur, media, design'
+left join dim_occupation d_occ ON d_occ.occupation_id = ft.occupation_id
+where d_occ.occupation_field = 'Kultur, media, design'

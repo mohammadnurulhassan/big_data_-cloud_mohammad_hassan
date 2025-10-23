@@ -1,15 +1,14 @@
 with 
-    fct_table as (select * from {{ref('fct_table')}}),
-    dim_employer as (select * from {{ref('dim_employer')}}) ,
-    dim_auxilliary as (select * from {{ref('dim_auxilliary_attributes')}}),
-    dim_job_details as (select * from {{ref('dim_job_details')}}),
-    dim_occupation as (select * from {{ref('dim_occupation')}})
-
+    fct_table as (select * from {{ ref('fct_table') }}),
+    dim_employer as (select * from {{ ref('dim_employer') }}),
+    dim_auxilliary as (select * from {{ ref('dim_auxilliary_attributes') }}),
+    dim_job_details as (select * from {{ ref('dim_job_details') }}),
+    dim_occupation as (select * from {{ ref('dim_occupation') }})
 
 select
-    do.occupation,
-    do.occupation_field,
-    do.occupation_group,
+    d_occ.occupation,
+    d_occ.occupation_field,
+    d_occ.occupation_group,
     dj.headline,
     dj.description,
     dj.employment_type,
@@ -33,4 +32,4 @@ from
 left join dim_employer de ON de.employer_id = ft.employer_id
 left join dim_auxilliary da ON da.auxilliary_attribute_id = ft.auxilliary_attribute_id
 left join dim_job_details dj ON dj.job_details_id = ft.job_details_id
-left join dim_occupation do ON do.occupation_id = ft.occupation_id
+left join dim_occupation d_occ ON d_occ.occupation_id = ft.occupation_id

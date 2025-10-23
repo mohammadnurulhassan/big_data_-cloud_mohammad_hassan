@@ -9,7 +9,7 @@ SELECT DISTINCT
 
     occupation_group__label as occupation_group,
   
-    occupation_field__label as occupation_field,
+    occupation_field as occupation_field,
    
 FROM stg_job_ads
 WHERE occupation__label IS NOT NULL

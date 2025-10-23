@@ -9,4 +9,5 @@ select
     max(occupation_field) as occupation_field
 
 from src_occupation
+where occupation is not null
 group by occupation
