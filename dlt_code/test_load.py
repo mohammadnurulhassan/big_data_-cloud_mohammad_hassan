@@ -65,12 +65,12 @@ def jobads_source(q: Optional[str] = "", limit: int = 100):
 
 # ---- Run the pipeline ----
 if __name__ == "__main__":
-    print("🚀 Starting DLT pipeline...")
+    print(" Starting DLT pipeline...")
     pipeline = dlt.pipeline(
         pipeline_name="job_ads_pipeline",
         destination=dlt.destinations.duckdb("../data_warehouse/job_ads.duckdb"),
         dataset_name="staging"
     )
     load_info = pipeline.run(jobads_source())
-    print("✅ Pipeline finished!")
+    print(" Pipeline finished!")
     print(load_info)
