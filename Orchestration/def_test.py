@@ -15,7 +15,7 @@ from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 #                      #
 # ==================== #
 import sys
-sys.path.insert(0, '../dlt_code')  # path to your DLT folder
+sys.path.insert(0,'../dlt_code')  # path to your DLT folder
 
 from test_load import jobads_source  # <-- your updated DLT file
 
