@@ -2,8 +2,8 @@ sources:
     - name: jobtech_analysis
       schema: staging
       tables:
-        - name: stg_ads
+        - name: stg_job
           identifier: job_ads
           metadata:
             dagster:
-              asset_key: ['dlt_jobads_source_jobads_resource']
+              asset_key: ['dlt_jobads_source_jobsearch_resource']

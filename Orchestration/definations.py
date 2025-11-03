@@ -1,94 +1,94 @@
 # ==================== #
 #                      #
-#       imports        #
+#       Imports        #
 #                      #
 # ==================== #
-# this file is used for running dagster locally
-# here we create a single file as a dagster script
-# alternatively, one can create a package for your dagster scripts
-
 from pathlib import Path
-import dlt
 import dagster as dg
+import dlt
 from dagster_dlt import DagsterDltResource, dlt_assets
 from dagster_dbt import DbtCliResource, DbtProject, dbt_assets
 
-# to import dlt script from another folder outside the orchestration folder
-# this part is not needed if you create a package for your dagster scripts
+# ==================== #
+#                      #
+#    Import DLT code   #
+#                      #
+# ==================== #
 import sys
-sys.path.insert(0, '../dlt_code')
-from load_job_ads import jobads_source
+sys.path.insert(0,'../dlt_code')  # path to your DLT folder
 
- 
+from test_load import jobads_source  # <-- your updated DLT file
+
+
 # ==================== #
 #                      #
-#       dlt Asset      #
+#       DLT Asset      #
 #                      #
 # ==================== #
-# the creation requires a local secrets.toml for snowflake connection 
-# pipeline definition is moved here
 
-# an instance from the dlt resource class to run dlt codes
-dlt_resource = DagsterDltResource() 
+# Create DLT resource for Dagster
+dlt_resource = DagsterDltResource()
 
+# Define where your DuckDB file will live
 db_path = Path(__file__).parents[1] / "data_warehouse" / "job_ads.duckdb"
 
-# create dlt asset 
+# DLT -> Dagster Asset definition
 @dlt_assets(
-    dlt_source = jobads_source(),
-    dlt_pipeline = dlt.pipeline(
-        pipeline_name="jobsads_demo",
+    dlt_source=jobads_source(),
+    dlt_pipeline=dlt.pipeline(
+        pipeline_name="job_ads_pipeline",
         dataset_name="staging",
         destination=dlt.destinations.duckdb(db_path),
     ),
 )
-# note the use of dependency injection so that dagster framework constructs instances 
-# of necessary classes needed to produce the asset: one for meta data, another for running dlt codes
-def dlt_load(context: dg.AssetExecutionContext, dlt: DagsterDltResource): 
-    # passes values from dlt.run directly to dagster one at a time
-    # -> asset stream data from dlt pipeline to dagster
-    yield from dlt.run(context=context) 
+def dlt_load(context: dg.AssetExecutionContext, dlt: DagsterDltResource):
+    """Load job ads data into DuckDB warehouse using DLT"""
+    yield from dlt.run(context=context)
 
 
 # ==================== #
 #                      #
-#       dbt Asset      #
+#       DBT Asset      #
 #                      #
 # ==================== #
-# this dbt asset needs dbt_packages pre-installed by 'dbp deps'
-# note the update in schema.yml
+# (Keep this ready for later DBT models integration)
 
-# Points to the dbt project path
 dbt_project_directory = Path(__file__).parents[1] / "dbt_code"
-# Define the path to your profiles.yml file (in your home directory)
-profiles_dir = Path.home() / ".dbt"  
-# instance of DbtProject with all necessary paths
-dbt_project = DbtProject(project_dir=dbt_project_directory,
-                         profiles_dir=profiles_dir)
+profiles_dir = Path.home() / ".dbt"
 
-# an instance from the dbt resource class to run dbt codes
+dbt_project = DbtProject(
+    project_dir=dbt_project_directory,
+    profiles_dir=profiles_dir
+)
+
 dbt_resource = DbtCliResource(project_dir=dbt_project)
 
-
-# produce the manifest file
-# the manifest file let dagster understand the dependency between models
+# Ensure manifest file is ready
 dbt_project.prepare_if_dev()
 
-# create dbt asset
-@dbt_assets(manifest=dbt_project.manifest_path,) # path to the dbt manifest.json
-# note the dependency injection similar to that in dlt asset
+@dbt_assets(manifest=dbt_project.manifest_path)
 def dbt_models(context: dg.AssetExecutionContext, dbt: DbtCliResource):
-    yield from dbt.cli(["build"], context=context).stream() # stream() is for showing the progress realtime in dagster UI
+    """Run DBT transformations"""
+    yield from dbt.cli(["build"], context=context).stream()
 
 
 # ==================== #
 #                      #
-#         Job          #
+#         Jobs         #
 #                      #
 # ==================== #
 
-job_dlt = dg.define_asset_job("job_dlt", selection=dg.AssetSelection.keys("dlt_jobads_source_jobads_resource"))
-job_dbt = dg.define_asset_job("job_dbt", selection=dg.AssetSelection.key_prefixes("warehouse", "marts"))
+#DLT job
+job_dlt = dg.define_asset_job(
+    "job_dlt",
+    selection=dg.AssetSelection.keys("dlt_jobads_source_jobsearch_resource"),
+)
+
+# DBT job
+job_dbt = dg.define_asset_job(
+    "job_dbt",
+    selection=dg.AssetSelection.key_prefixes("warehouse", "marts"),)
+
 
 # ==================== #
 #                      #
@@ -96,11 +96,11 @@ job_dbt = dg.define_asset_job("job_dbt", selection=dg.AssetSelection.key_prefixe
 #                      #
 # ==================== #
 
-#schedule for the first job
 schedule_dlt = dg.ScheduleDefinition(
     job=job_dlt,
-    cron_schedule="30 11 * * *" #UTC
+    cron_schedule="08 21 * * *"  # Runs every day 21:08 UTC
 )
+
 
 # ==================== #
 #                      #
@@ -108,11 +108,13 @@ schedule_dlt = dg.ScheduleDefinition(
 #                      #
 # ==================== #
 
-#sensor for the second job
-@dg.asset_sensor(asset_key=dg.AssetKey("dlt_jobads_source_jobads_resource"),
-                 job_name="job_dbt")
+@dg.asset_sensor(
+    asset_key=dg.AssetKey("dlt_jobads_source_jobsearch_resource"),
+   job_name="job_dbt"
+   )
 def dlt_load_sensor():
     yield dg.RunRequest()
+
 
 # ==================== #
 #                      #
@@ -120,13 +122,10 @@ def dlt_load_sensor():
 #                      #
 # ==================== #
 
-# Dagster object that contains the dbt assets and resource
 defs = dg.Definitions(
-                    assets=[dlt_load, dbt_models], 
-                    resources={"dlt": dlt_resource,
-                               "dbt": dbt_resource},
-                    jobs=[job_dlt, job_dbt],
-                    schedules=[schedule_dlt],
-                    sensors=[dlt_load_sensor],
-                    )
-
+    assets=[dlt_load,dbt_models],
+    resources={"dlt": dlt_resource,"dbt": dbt_resource},
+    jobs=[job_dlt, job_dbt],
+    schedules=[schedule_dlt],
+    sensors=[dlt_load_sensor],
+)

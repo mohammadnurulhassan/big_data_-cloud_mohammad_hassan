@@ -3,23 +3,15 @@ import dlt
 import requests
 import json
 from typing import Dict, Iterator, Optional, List
-from pathlib import Path
-import os
 
 dlt.config["load.truncate_staging_dataset"] = True
 
 # Define the occupation fields you want to pull
 OCCUPATION_FIELDS = ["yhCP_AqT_tns", "Uuf1_GMh_Uvw", "9puE_nYg_crq"]
 
-# Resolve the absolute path for the DuckDB file relative to the script's location
-# This assumes the DuckDB file is in ../duckdb_warehouse/job_ads.duckdb (or similar)
-# We will use the relative path in the pipeline run, but this is a common helper pattern.
-# db_path = str(Path(__file__).parents[1] / "duckdb_warehouse/job_ads.duckdb")
-
 
 def _get_ads(url_for_search: str, p: Dict) -> Dict:
     headers = {"accept": "application/json"}
-    # Using 'params' for the query parameters is cleaner
     resp = requests.get(url_for_search, headers=headers, params=p, timeout=30)
     resp.raise_for_status()
     return resp.json()
@@ -29,12 +21,14 @@ def _get_ads(url_for_search: str, p: Dict) -> Dict:
 def jobsearch_resource(params: Dict) -> Iterator[Dict]:
     """
     DLT resource that pages through JobTech API results.
-    Pulls data for all occupation fields specified in params.
+    params includes:
+      - q: query string (optional)
+      - limit: page size (default 100)
+      - occupation_fields: list of occupation field IDs
     """
     url = "https://jobsearch.api.jobtechdev.se/search"
     limit = int(params.get("limit", 100))
     q = params.get("q", "")
-    # Use the parameter from the source, defaulting to the constant if not provided
     occupation_fields: List[str] = params.get("occupation_fields", OCCUPATION_FIELDS)
 
     for occ_field in occupation_fields:
@@ -42,7 +36,6 @@ def jobsearch_resource(params: Dict) -> Iterator[Dict]:
         offset = 0
 
         while True:
-            # Note: the API uses 'occupation-field', so we use that in page_params
             page_params = {"q": q, "limit": limit, "offset": offset, "occupation-field": occ_field}
             data = _get_ads(url, page_params)
             hits = data.get("hits", [])
@@ -51,13 +44,12 @@ def jobsearch_resource(params: Dict) -> Iterator[Dict]:
                 break
 
             for ad in hits:
-                # Normalize ID (assuming the unique job ad ID is under the key 'id' or 'ID')
-                ad["id"] = ad.get("ID") if ad.get("ID") is not None else ad.get("id")
+                # Normalize ID
+                ad["id"] = ad.get("ID", ad.get("id"))
                 ad["occupation_field"] = occ_field  # Tag for reference
                 yield ad
 
-            # Break condition: less than a full page, or max offset reached
-            if len(hits) < limit or offset >= 1900:
+            if len(hits) < limit or offset > 1900:
                 break
 
             offset += limit
@@ -66,31 +58,19 @@ def jobsearch_resource(params: Dict) -> Iterator[Dict]:
 @dlt.source
 def jobads_source(q: Optional[str] = "", limit: int = 100):
     """
-    DLT source that runs the jobsearch_resource for all occupation fields defined above.
+    DLT source that runs the resource for all occupation fields defined above.
     """
     params = {"q": q, "limit": limit, "occupation_fields": OCCUPATION_FIELDS}
-    # Return the resource, which will handle the iteration over all occupation fields
     return jobsearch_resource(params)
 
 # ---- Run the pipeline ----
 if __name__ == "__main__":
-    # Ensure working directory is set correctly if using relative paths
-    working_directory = Path(__file__).parent
-    os.chdir(working_directory)
-    
     print(" Starting DLT pipeline...")
-    
-    # ⚠️ FIX: The dataset_name should be the schema name (e.g., 'staging')
-    # and the database path should be correct relative to where the script is run.
     pipeline = dlt.pipeline(
         pipeline_name="job_ads_pipeline",
-        # Use a path relative to the repository root, assuming it is one level up
         destination=dlt.destinations.duckdb("../data_warehouse/job_ads.duckdb"),
-        dataset_name="staging" 
+        dataset_name="staging.job_ads"
     )
-    
-    # The source provides the single data stream containing data from all occupation fields.
     load_info = pipeline.run(jobads_source())
-    
     print(" Pipeline finished!")
     print(load_info)
